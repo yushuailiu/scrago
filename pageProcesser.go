@@ -1,5 +1,5 @@
 package scrago
 
 type PageProcessor interface {
-	Process(request *Request)
+	Process(request *Request, page *Page)
 }

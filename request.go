@@ -1,13 +1,10 @@
 package scrago
 
-import "net/http"
-
 type Request struct {
 	Url    string
 	Method string
 	Body   string
 	Page *Page
-	Resp *http.Response
 }
 
 func NewRequest(method, url string) *Request {

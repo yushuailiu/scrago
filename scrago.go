@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 	"log"
 	"os"
+	"net/http"
+	"github.com/yushuailiu/scrago/pipeline"
 )
 
 type Spider struct {
@@ -27,6 +29,12 @@ type Spider struct {
 	runningCount int32
 
 	logger *log.Logger
+
+	tryTimes int32
+
+	pageSuccessFunc func(*http.Response) bool
+
+	pipelines []*pipeline.Pipeline
 }
 
 var (
@@ -35,11 +43,32 @@ var (
 
 const (
 	DefaultMaxParallel = 5
+	DefaultTryTimes = 3
 )
 
 func NewSpider() *Spider {
 	return NewSpiderWithProcessor(nil)
 }
+
+func NewSpiderWithProcessor(pageProcessor PageProcessor) *Spider {
+	spider := &Spider{
+		pageProcessor: pageProcessor,
+		maxParallel:   DefaultMaxParallel,
+		tryTimes: DefaultTryTimes,
+		logger:        defaultLogger(),
+		stopChannel:   make(chan struct{}),
+		pageSuccessFunc: defaultPageSuccessFunc,
+		pipelines: make([]*pipeline.Pipeline, 0),
+	}
+	spider.cond = sync.NewCond(spider)
+	return spider
+}
+
+// defaultPageSuccessFunc 默认的判断页面是否成功方法
+func defaultPageSuccessFunc(resp *http.Response) bool {
+	return true
+}
+
 
 func (s *Spider) Run() (*Spider, error) {
 	if s.pageProcessor == nil {
@@ -54,11 +83,9 @@ func (s *Spider) Run() (*Spider, error) {
 
 waitExit:
 	for {
-		s.logger.Println("for")
 		select {
 		case <-s.stopChannel:
 			s.Close()
-			s.logger.Println("exit")
 			break waitExit
 		}
 	}
@@ -72,8 +99,6 @@ func (s *Spider) Close() {
 	for _, d := range s.freeDownloaderPool {
 		d.request <- nil
 	}
-
-	s.logger.Println("close")
 
 	s.freeDownloaderPool = nil
 	s.running = false
@@ -135,17 +160,6 @@ func (s *Spider) startScrago() {
 	}
 }
 
-func NewSpiderWithProcessor(pageProcessor PageProcessor) *Spider {
-	spider := &Spider{
-		pageProcessor: pageProcessor,
-		maxParallel:   DefaultMaxParallel,
-		logger:        defaultLogger(),
-		stopChannel:   make(chan struct{}),
-	}
-	spider.cond = sync.NewCond(spider)
-	return spider
-}
-
 func (s *Spider) AddUrl(method, url string) (*Spider, error) {
 	request := NewGetRequest(url)
 	s.Lock()
@@ -166,12 +180,8 @@ func (s *Spider) addFreeDownloader(d *Downloader) error {
 	s.freeDownloaderPool = append(s.freeDownloaderPool, d)
 	s.cond.Signal()
 
-	s.logger.Println(s.runningCount)
-	s.logger.Println(len(s.requests))
 	if s.runningCount == 0 && len(s.requests) == 0 {
-		s.logger.Println("fadsf")
 		s.stopChannel <- struct{}{}
-		s.logger.Println("fffff")
 	}
 
 	return nil
