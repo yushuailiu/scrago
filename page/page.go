@@ -6,6 +6,7 @@ import (
 	"strings"
 	"fmt"
 	"github.com/yushuailiu/scrago/request"
+	"github.com/bitly/go-simplejson"
 )
 
 
@@ -74,7 +75,16 @@ func (p *Page) GetDocParse() (*goquery.Document, error) {
 	return doc, nil
 }
 
+func (p *Page) GetJsonParse() (*simplejson.Json, error) {
+	jsonData, err := simplejson.NewJson([]byte(p.body))
+	return jsonData, err
+}
+
 func (p *Page) AddItem(item *pageItem) *Page {
 	p.items = append(p.items, item)
 	return p
+}
+
+func (p *Page) GetItems() []*pageItem {
+	return p.items
 }

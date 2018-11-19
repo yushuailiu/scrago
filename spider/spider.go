@@ -30,7 +30,7 @@ type Spider struct {
 
 	pageSuccessFunc func(*http.Response) bool
 
-	pipelines []*pipeline.Pipeline
+	pipelines []pipeline.Pipeline
 
 	urlPool urlpool.UrlPool
 
@@ -40,7 +40,7 @@ type Spider struct {
 }
 
 const (
-	DefaultMaxParallel = 5
+	DefaultMaxParallel = 1
 	DefaultTryTimes    = 3
 	DefaultInterval    = time.Second
 )
@@ -51,7 +51,7 @@ func NewSpiderWithProcessor(pageProcessor page_processer.PageProcessor) *Spider 
 		tryTimes:         DefaultTryTimes,
 		stopChannel:      make(chan struct{}),
 		pageSuccessFunc:  defaultPageSuccessFunc,
-		pipelines:        make([]*pipeline.Pipeline, 0),
+		pipelines:        make([]pipeline.Pipeline, 0),
 		urlPool:          urlpool.NewLocalQueueUrlPool(),
 		parallelResource: resource_manage.NewResourceManageChan(DefaultMaxParallel),
 		interval:         DefaultInterval,
@@ -118,6 +118,11 @@ func (s *Spider) startScrago() {
 		for _, req := range p.GetNewRequests() {
 			s.urlPool.Push(req)
 		}
+
+		for _, pipeline := range s.pipelines  {
+			pipeline.Process(p)
+		}
+
 		s.parallelResource.FreeOne()
 	}
 }
@@ -144,5 +149,12 @@ func (s *Spider) SetParallelCount(parallelCount int) *Spider {
 
 func (s *Spider) SetTryTimes(tryTimes int) *Spider {
 	s.tryTimes = tryTimes
+	return s
+}
+
+func (s *Spider) AddPipeline(p pipeline.Pipeline) *Spider {
+	s.Lock()
+	defer s.Unlock()
+	s.pipelines = append(s.pipelines, p)
 	return s
 }
