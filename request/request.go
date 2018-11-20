@@ -3,33 +3,30 @@ package request
 import (
 	"crypto/md5"
 	"fmt"
+	"net/http"
 )
 
 type Request struct {
 	Url    string
 	Method string
 	Body   string
+	Header http.Header
 }
 
 func NewRequest(method, url string) *Request {
 	return &Request{
 		Method: method,
 		Url:    url,
+		Header: make(map[string][]string),
 	}
 }
 
 func NewGetRequest(url string) *Request {
-	return &Request{
-		Method: "GET",
-		Url:    url,
-	}
+	return NewRequest("GET", url)
 }
 
 func NewPostRequest(url string) *Request {
-	return &Request{
-		Method: "POST",
-		Url:    url,
-	}
+	return NewRequest("POST", url)
 }
 
 func (r *Request) SetBody(body string) *Request {

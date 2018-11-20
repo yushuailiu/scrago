@@ -37,6 +37,8 @@ type Spider struct {
 	parallelResource resource_manage.ResourceManage
 
 	interval time.Duration
+
+	header http.Header
 }
 
 const (
@@ -55,7 +57,9 @@ func NewSpiderWithProcessor(pageProcessor page_processer.PageProcessor) *Spider 
 		urlPool:          urlpool.NewLocalQueueUrlPool(),
 		parallelResource: resource_manage.NewResourceManageChan(DefaultMaxParallel),
 		interval:         DefaultInterval,
+		header: make(map[string][]string),
 	}
+	spider.setDefaultHeader()
 	return spider
 }
 
@@ -110,7 +114,7 @@ func (s *Spider) startScrago() {
 
 		d := downloader.NewDownloader()
 
-		p := d.Do(req, s.tryTimes)
+		p := d.Do(req, s.tryTimes, s.header)
 		s.pageProcessor.Process(req, p)
 
 		time.Sleep(s.interval)
@@ -137,6 +141,13 @@ func (s *Spider) AddUrl(method, url string) (*Spider, error) {
 	return s, nil
 }
 
+func (s *Spider) AddRequest(r *request.Request) *Spider {
+	s.Lock()
+	defer s.Unlock()
+	s.urlPool.Push(r)
+	return s
+}
+
 func (s *Spider) SetInterval(interval time.Duration) *Spider {
 	s.interval = interval
 	return s
@@ -156,5 +167,22 @@ func (s *Spider) AddPipeline(p pipeline.Pipeline) *Spider {
 	s.Lock()
 	defer s.Unlock()
 	s.pipelines = append(s.pipelines, p)
+	return s
+}
+
+func (s *Spider) setDefaultHeader() {
+	s.header.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8")
+	s.header.Add("Accept-Encoding", "gzip, deflate")
+	// todo  rand user-agent 还是保留作为默认值？
+	s.header.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36")
+}
+
+func (s *Spider) AddHeader(key, val string) *Spider {
+	s.header.Add(key, val)
+	return s
+}
+
+func (s *Spider) SetHeader(key, val string) *Spider {
+	s.header.Set(key, val)
 	return s
 }

@@ -7,6 +7,7 @@ import (
 	"compress/gzip"
 	"github.com/yushuailiu/scrago/request"
 	"github.com/yushuailiu/scrago/page"
+	"fmt"
 )
 
 type Downloader struct {
@@ -19,16 +20,26 @@ func NewDownloader() *Downloader {
 	}
 }
 
-func (d *Downloader) Do(request *request.Request, tryTimes int) *page.Page {
+func (d *Downloader) Do(request *request.Request, tryTimes int, header http.Header) *page.Page {
 
 	c := &http.Client{}
 
 	req, err := http.NewRequest(request.Method, request.Url, strings.NewReader(request.Body))
 
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8")
-	req.Header.Set("Accept-Encoding", "gzip, deflate")
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36")
+	for key, vals := range header {
+		for _, val := range vals {
+			req.Header.Add(key, val)
+		}
+	}
 
+	for key, vals := range request.Header {
+		for _, val := range vals {
+			req.Header.Add(key, val)
+		}
+	}
+
+	fmt.Println(req.Header)
+	fmt.Println(req.URL)
 
 	if err != nil {
 		// todo log
